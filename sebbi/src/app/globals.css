@@ -116,7 +116,62 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Estilos para el placeholder de Tiptap */
+.tiptap p.is-node-empty::before,
+.tiptap h1.is-node-empty::before,
+.tiptap h2.is-node-empty::before,
+.tiptap h3.is-node-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  /* Un gris suave para el placeholder */
+  pointer-events: none;
+  /* Para que no interfiera con el click */
+  height: 0;
+  /* No ocupa espacio vertical */
+  font-style: normal;
+}
+
+/* Placeholder específico para el H1 principal "Sin título" */
+.tiptap h1.is-node-empty::before {
+  color: #ced4da;
+  /* Un gris aún más suave para el título principal */
+  font-weight: 600;
+  /* O el peso que uses para H1 normal */
+  font-size: 2.25rem;
+  /* Ajusta al tamaño de tu H1 */
+  line-height: 2.5rem;
+  /* Ajusta al line-height de tu H1 */
+}
+
+/* Placeholder para párrafos que sugiere comandos */
+.tiptap p.is-node-empty::before {
+  font-weight: normal;
+  /* Si quieres añadir un ícono de + antes del placeholder de párrafo: */
+  /* content: '⊕ ' attr(data-placeholder); */
+  /* Usando un carácter similar a plus */
+}
+
+/* Estilos base para el contenido del editor de Tiptap */
+.tiptap {
+  /* Define aquí estilos base para p, h1, h2, h3, ul, ol, blockquote, etc. */
+  /* Esto asegura que el contenido se vea bien incluso sin clases prose */
+}
+
+.tiptap h1 {
+  @apply text-4xl font-semibold text-neutral-800 mb-6;
+  /* Ejemplo de estilo para H1 */
+}
+
+.tiptap p {
+  @apply text-base text-neutral-700 leading-relaxed mb-4;
+  /* Ejemplo de estilo para Párrafos */
+}
+
+/* ... más estilos para otros elementos ... */
