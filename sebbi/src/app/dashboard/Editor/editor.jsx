@@ -1,216 +1,234 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import React, { useState, useEffect, useRef } from "react";
+import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import Heading from "@tiptap/extension-heading";
-import {
-    Zap,
-    Settings,
-    Clock,
-    Quote,
-    TextIcon,
-    Image as ImageIcon,
-    Table,
-    FileCode,
-    Braces,
-    Undo,
-    Redo,
-    CheckCircle,
-    ChevronDown,
-    PlusCircle
-} from "lucide-react";
+import Image from '@tiptap/extension-image';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
+import Link from '@tiptap/extension-link';
+import { TooltipProvider } from "@/components/ui/tooltip";
+import useEditorStore from '@/stores/editorStore';
 
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import TopBar from './components/TopBar';
+import BottomBar from './components/BottomBar';
+import EditorContentWrapper from './components/EditorContent';
+import SaveIndicator from './components/SaveIndicator';
+import { getCommandItemsList } from './constants/commandItems';
 
 export default function NotionStyleEditor() {
-    const [documentTitle, setDocumentTitle] = useState("");
+    const [documentTitle, setDocumentTitle] = useState("Sin título");
     const [wordCount, setWordCount] = useState(0);
+    const [menuState, setMenuState] = useState({
+        isOpen: false,
+        position: null,
+        query: '',
+        range: null,
+        selectedIndex: 0,
+        filteredItems: [],
+    });
+
+    const { setEditor } = useEditorStore();
+    const commandMenuRef = useRef(null);
 
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
                 heading: {
                     levels: [1, 2, 3],
+                    HTMLAttributes: {
+                        class: 'first-heading',
+                    },
                 },
             }),
-            Heading.configure({ levels: [1, 2, 3] }),
             Placeholder.configure({
-                placeholder: ({ node, editor: currentEditor }) => {
-                    if (node.type.name === 'heading' && node.attrs.level === 1 && node.content.size === 0 && currentEditor.state.doc.firstChild === node) {
-                        return 'Sin título';
+                placeholder: ({ node }) => {
+                    if (node.type.name === 'heading' && node.attrs.level === 1) {
+                        return 'Sin título'
                     }
-                    if (node.type.name === 'paragraph' && node.content.size === 0) {
-                        return 'Pulsa Intro o escribe / para comandos...';
-                    }
-                    return null;
+                    return 'Escribe algo...'
                 },
-                emptyEditorClass: 'is-editor-empty',
-                emptyNodeClass: 'is-node-empty',
+            }),
+            Image.configure({
+                inline: true,
+                allowBase64: true,
+            }),
+            Table.configure({
+                resizable: true,
+                HTMLAttributes: {
+                    class: 'border-collapse table-auto w-full',
+                },
+            }),
+            TableRow,
+            TableHeader,
+            TableCell,
+            Link.configure({
+                openOnClick: false,
+                HTMLAttributes: {
+                    class: 'text-blue-500 hover:text-blue-600 underline',
+                },
             }),
         ],
-        content: '<h1> </h1><p> </p>',
+        content: '<h1></h1><p></p>',
         onUpdate: ({ editor: currentEditor }) => {
+            // Asegurar que siempre exista un h1 al inicio
+            const firstNode = currentEditor.state.doc.firstChild;
+            if (!firstNode || firstNode.type.name !== 'heading' || firstNode.attrs.level !== 1) {
+                currentEditor.chain()
+                    .focus()
+                    .insertContentAt(0, '<h1></h1>')
+                    .run();
+            }
+
+            // Obtener el título actual
+            const titleText = firstNode?.textContent.trim() || '';
+            setDocumentTitle(titleText || "Sin título");
+
+            // Actualizar conteo de palabras
             const text = currentEditor.getText();
             const words = text.split(/\s+/).filter(word => word.length > 0);
             setWordCount(words.length === 1 && words[0] === '' ? 0 : words.length);
 
-            const firstNode = currentEditor.state.doc.firstChild;
-            if (firstNode && firstNode.type.name === 'heading' && firstNode.attrs.level === 1) {
-                const h1Text = firstNode.textContent.trim();
-                if (h1Text && h1Text !== "Sin título") {
-                }
+            // Lógica del menú de comandos
+            const { selection } = currentEditor.state;
+            const { from, to, empty } = selection;
+
+            if (!empty) {
+                if (menuState.isOpen) closeMenuHandler();
+                return;
             }
+
+            const currentBlock = currentEditor.state.doc.resolve(from).parent;
+            const currentBlockStartPos = currentEditor.state.doc.resolve(from).start(currentEditor.state.doc.resolve(from).depth);
+            const textBeforeCursor = currentBlock.textBetween(0, from - currentBlockStartPos, '\n');
+
+            if (textBeforeCursor.startsWith('/') &&
+                !textBeforeCursor.includes(' ', 1) &&
+                currentBlock.content.size === textBeforeCursor.length &&
+                currentBlock.type.name === 'paragraph'
+            ) {
+                const currentQuery = textBeforeCursor.substring(1);
+                const commandTextRange = {
+                    from: currentBlockStartPos,
+                    to: currentBlockStartPos + textBeforeCursor.length
+                };
+
+                if (!menuState.isOpen || menuState.range?.from !== commandTextRange.from) {
+                    const coords = currentEditor.view.coordsAtPos(currentBlockStartPos + 1);
+                    setMenuState({
+                        isOpen: true,
+                        position: {
+                            top: coords.bottom + window.scrollY,
+                            left: coords.left
+                        },
+                        query: currentQuery,
+                        range: commandTextRange,
+                        selectedIndex: 0,
+                        filteredItems: getCommandItemsList().filter(item =>
+                            item.title.toLowerCase().includes(currentQuery.toLowerCase()) ||
+                            item.description.toLowerCase().includes(currentQuery.toLowerCase())
+                        ).slice(0, 10),
+                    });
+                } else {
+                    setMenuState(prev => ({
+                        ...prev,
+                        query: currentQuery,
+                        range: commandTextRange,
+                        filteredItems: getCommandItemsList().filter(item =>
+                            item.title.toLowerCase().includes(currentQuery.toLowerCase()) ||
+                            item.description.toLowerCase().includes(currentQuery.toLowerCase())
+                        ).slice(0, 10),
+                    }));
+                }
+            } else if (menuState.isOpen) {
+                closeMenuHandler();
+            }
+        },
+        onCreate: ({ editor }) => {
+            setEditor(editor);
+        },
+        onDestroy: () => {
+            setEditor(null);
         },
         editorProps: {
             attributes: {
-                class: "focus:outline-none min-h-full",
+                class: "focus:outline-none min-h-full prose prose-sm max-w-none prose-headings:font-semibold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:my-2 prose-pre:bg-neutral-100 prose-pre:p-2 prose-pre:rounded",
             },
         },
     });
 
+    const closeMenuHandler = () => {
+        setMenuState({
+            isOpen: false,
+            position: null,
+            query: '',
+            range: null,
+            selectedIndex: 0,
+            filteredItems: [],
+        });
+    };
+
+    const handleCommandExecution = (item) => {
+        if (!editor || !menuState.range) return;
+
+        editor.chain()
+            .focus()
+            .deleteRange(menuState.range)
+            .run();
+
+        item.action({ editor });
+        closeMenuHandler();
+    };
+
     useEffect(() => {
-        if (editor) {
-            const text = editor.getText();
-            const words = text.split(/\s+/).filter(word => word.length > 0);
-            setWordCount(words.length === 1 && words[0] === '' ? 0 : words.length);
-        }
-    }, [editor]);
+        const handleKeyDown = (event) => {
+            if (!menuState.isOpen || !editor) return;
+
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeMenuHandler();
+                return;
+            }
+
+            if (['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) {
+                event.preventDefault();
+                commandMenuRef.current?.onKeyDown(event);
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown, true);
+        return () => document.removeEventListener('keydown', handleKeyDown, true);
+    }, [menuState.isOpen, editor]);
+
 
     if (!editor) return null;
 
     return (
         <TooltipProvider delayDuration={100}>
             <div className="flex flex-col h-screen bg-white text-neutral-800">
-                {/* Barra superior */}
-                <div className="flex justify-between items-center px-5 py-2.5 border-b border-neutral-200/70">
-                    <div>
-                        <Input
-                            type="text"
-                            value={documentTitle}
-                            onChange={(e) => setDocumentTitle(e.target.value)}
-                            placeholder="Sin título"
-                            className="font-semibold text-sm text-neutral-700 border-none shadow-none h-8 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 w-[250px]"
-                        />
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Button size="sm" className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-xs h-8">
-                            <Zap size={14} />
-                            <span>See Pricing</span>
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-xs text-neutral-600 h-8">Export</Button>
-                        <Button variant="ghost" size="sm" className="text-xs text-neutral-600 h-8">Publish</Button>
+                <TopBar
+                    documentTitle={documentTitle}
+                    setDocumentTitle={setDocumentTitle}
+                />
 
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500 hover:bg-neutral-100">
-                                    <Settings size={16} />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom"><p>Configuración</p></TooltipContent>
-                        </Tooltip>
-
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500 hover:bg-neutral-100">
-                                    <Clock size={16} />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom"><p>Historial</p></TooltipContent>
-                        </Tooltip>
-                    </div>
-                </div>
-
-                {/* Área principal del editor */}
                 <div className="flex-grow overflow-y-auto relative">
-                    <div className="max-w-[800px] mx-auto px-4 sm:px-8 py-12">
-                        <EditorContent editor={editor} />
-                    </div>
-                    <div className="absolute right-6 top-6">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button size="icon" className="bg-blue-500 hover:bg-blue-600 text-white rounded-full h-7 w-7 p-0">
-                                    <CheckCircle size={14} />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left"><p>Guardado</p></TooltipContent>
-                        </Tooltip>
-                    </div>
+                    <EditorContentWrapper
+                        editor={editor}
+                        menuState={menuState}
+                        commandMenuRef={commandMenuRef}
+                        handleCommandExecution={handleCommandExecution}
+                        setMenuState={setMenuState}
+                    />
+                    <SaveIndicator />
                 </div>
 
-                {/* Barra inferior */}
-                <div className="border-t border-neutral-200/70 py-1.5 px-4 flex justify-between items-center">
-                    <div className="flex items-center">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs font-normal text-neutral-600 hover:bg-neutral-100">
-                                    <Quote size={14} className="opacity-70" />
-                                    <span>Cite</span>
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Citar fuentes</p></TooltipContent>
-                        </Tooltip>
-
-                        <Separator orientation="vertical" className="mx-3 h-5 bg-neutral-200/70" />
-
-                        <div className="flex items-center gap-0.5">
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-medium flex items-center text-neutral-700 hover:bg-neutral-100">
-                                <TextIcon size={14} />
-                                <span className="ml-1">Text</span>
-                                <ChevronDown size={12} className="ml-0.5 text-neutral-400" />
-                            </Button>
-                        </div>
-
-                        <Separator orientation="vertical" className="mx-3 h-5 bg-neutral-200/70" />
-
-                        <div className="flex items-center gap-0.5">
-                            {[
-                                { icon: ImageIcon, label: "Imagen" },
-                                { icon: Table, label: "Tabla" },
-                                { icon: FileCode, label: "Bloque de Código" },
-                                { icon: Braces, label: "Fórmula (Math)" },
-                            ].map(item => (
-                                <Tooltip key={item.label}>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-500 hover:bg-neutral-100">
-                                            <item.icon size={14} />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{item.label}</p></TooltipContent>
-                                </Tooltip>
-                            ))}
-                        </div>
-
-                        <Separator orientation="vertical" className="mx-3 h-5 bg-neutral-200/70" />
-
-                        <div className="flex items-center gap-0.5">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-500 hover:bg-neutral-100">
-                                        <Undo size={15} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Deshacer</p></TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-500 hover:bg-neutral-100">
-                                        <Redo size={15} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Rehacer</p></TooltipContent>
-                            </Tooltip>
-                        </div>
-                    </div>
-
-                    <div className="text-neutral-500 text-xs">
-                        {wordCount} palabras
-                    </div>
-                </div>
+                <BottomBar
+                    editor={editor}
+                    wordCount={wordCount}
+                />
             </div>
         </TooltipProvider>
     );

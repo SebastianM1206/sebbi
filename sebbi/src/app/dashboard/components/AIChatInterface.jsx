@@ -9,16 +9,17 @@ import {
     AtSign,
     Send,
     ArrowDown,
-    FileText as FileTextIcon,
-    Globe as GlobeIcon,
-    BookOpen as BookOpenIcon,
-    X as XIcon
+    Copy,
+    FileText
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import useEditorStore from '@/stores/editorStore';
+import { marked } from 'marked';
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useUIStore } from '@/stores/uiStore';
 
 // Asumimos que tu backend FastAPI corre en http://localhost:8000
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -39,17 +40,9 @@ export default function AIChatInterface() {
     const messagesContainerRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const { editor } = useEditorStore();
 
-    // Estado para los contextos activos (simulado)
-    const [activeContexts, setActiveContexts] = useState([
-        { id: 'doc1', label: 'Current document', icon: FileTextIcon },
-        { id: 'web1', label: 'Web', icon: GlobeIcon },
-        { id: 'lib1', label: 'Library', icon: BookOpenIcon },
-    ]);
-
-    const removeContext = (idToRemove) => {
-        setActiveContexts(contexts => contexts.filter(ctx => ctx.id !== idToRemove));
-    };
+    const { isChatSidebarOpen, toggleChatSidebar } = useUIStore();
 
     const handleSendMessage = async () => {
         if (inputValue.trim() === "") return;
@@ -68,7 +61,7 @@ export default function AIChatInterface() {
         setError(null);
 
         try {
-            const response = await fetch(`${API_URL}/ask`, {
+            const response = await fetch(`${API_URL}/api/v1/questions/ask`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: currentInputForAPI }),
@@ -129,12 +122,36 @@ export default function AIChatInterface() {
         }
     };
 
+    const handleCopyToClipboard = (text) => {
+        navigator.clipboard.writeText(text);
+    };
+
+    const handleAddToDocument = (text) => {
+        if (editor) {
+            const htmlContent = marked(text);
+
+            // Insertar después del título (h1)
+            const firstNode = editor.state.doc.firstChild;
+            const insertPosition = firstNode ? firstNode.nodeSize : 0;
+
+            editor.chain()
+                .focus()
+                .insertContentAt(insertPosition, `<p>${htmlContent}</p>`)
+                .run();
+        }
+    };
+
     return (
-        <div className="flex flex-col h-screen bg-white border-l border-neutral-200 w-[360px] sm:w-[400px] md:w-[480px] lg:w-[520px] overflow-hidden">
+        <div className="flex flex-col h-screen bg-white border-l border-neutral-200 w-full overflow-hidden">
             {/* Barra superior */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80">
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-neutral-500"
+                        onClick={toggleChatSidebar}
+                    >
                         <ChevronsRight size={18} />
                     </Button>
                     <h2 className="text-sm font-semibold text-neutral-700">AI Chat</h2>
@@ -177,6 +194,28 @@ export default function AIChatInterface() {
                                     >
                                         {msg.text}
                                     </ReactMarkdown>
+                                    {!msg.isError && msg.id !== "initial-ai-greeting" && (
+                                        <div className="flex gap-2 mt-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs h-8 gap-1.5"
+                                                onClick={() => handleAddToDocument(msg.text)}
+                                            >
+                                                <FileText size={14} />
+                                                Agregar al documento
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs h-8 gap-1.5"
+                                                onClick={() => handleCopyToClipboard(msg.text)}
+                                            >
+                                                <Copy size={14} />
+                                                Copiar
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         }
@@ -208,41 +247,6 @@ export default function AIChatInterface() {
 
             {/* Área de Input */}
             <div className="border-t border-neutral-200/80 bg-white">
-                <div className="px-3 pt-2 pb-1 flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" className="text-xs text-indigo-600 gap-1.5 px-1 h-7">
-                        <Plus size={15} />
-                    </Button>
-                    {activeContexts.map(ctx => (
-                        <Button
-                            key={ctx.id}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-7 gap-1.5 pr-1 pl-2 border-neutral-300/80 text-neutral-600 bg-neutral-100/80 hover:bg-neutral-200/70 shadow-xs flex items-center"
-                        >
-                            <ctx.icon size={13} className="text-neutral-500 mr-1" />
-                            <span>{ctx.label}</span>
-                            <span
-                                role="button"
-                                tabIndex={0}
-                                aria-label={`Remove ${ctx.label} context`}
-                                className="ml-1.5 p-0.5 rounded-full hover:bg-neutral-300/70 cursor-pointer flex items-center justify-center"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeContext(ctx.id);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === " ") {
-                                        e.stopPropagation();
-                                        removeContext(ctx.id);
-                                    }
-                                }}
-                            >
-                                <XIcon size={11} strokeWidth={3} className="text-neutral-400 hover:text-neutral-600" />
-                            </span>
-                        </Button>
-                    ))}
-                </div>
-
                 <div className="p-3 pt-1">
                     <div className="relative flex items-center">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none z-10">
@@ -256,7 +260,7 @@ export default function AIChatInterface() {
                         <Textarea
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            placeholder="Ask assistant, use @ to mention specific PDFs..."
+                            placeholder="Ask assistant..."
                             className="pl-[4.5rem] pr-[5.5rem] min-h-[50px] max-h-[150px] text-sm rounded-md border-neutral-300/90 focus-visible:ring-1 focus-visible:ring-indigo-500 focus-visible:ring-offset-0 resize-none w-full"
                             onKeyDown={(e) => {
                                 if (e.key === "Enter" && !e.shiftKey && !loading) {

@@ -122,6 +122,24 @@
   }
 }
 
+.tiptap {
+  :first-child {
+    margin-top: 0;
+  }
+
+  /* List styles */
+  ul,
+  ol {
+    padding: 0 1rem;
+    margin: 1.25rem 1rem 1.25rem 0.4rem;
+
+    li p {
+      margin-top: 0.25em;
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
 /* Estilos para el placeholder de Tiptap */
 .tiptap p.is-node-empty::before,
 .tiptap h1.is-node-empty::before,
@@ -175,3 +193,137 @@
 }
 
 /* ... más estilos para otros elementos ... */
+
+/* Estilos para el menú flotante */
+.bubble-menu {
+  display: flex;
+  background-color: white;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.1);
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0.2s, opacity 0.2s;
+}
+
+.bubble-menu.is-active {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Estilos para el editor */
+.ProseMirror {
+  min-height: 100px;
+  padding: 0.5rem 0;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+.ProseMirror>*+* {
+  margin-top: 0.75em;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding: 0 1rem;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  line-height: 1.1;
+}
+
+.ProseMirror code {
+  background-color: rgba(97, 97, 97, 0.1);
+  color: #616161;
+}
+
+.ProseMirror pre {
+  background: #0D0D0D;
+  color: #FFF;
+  font-family: 'JetBrainsMono', monospace;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.ProseMirror pre code {
+  color: inherit;
+  padding: 0;
+  background: none;
+  font-size: 0.8rem;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ProseMirror blockquote {
+  padding-left: 1rem;
+  border-left: 2px solid rgba(13, 13, 13, 0.1);
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid rgba(13, 13, 13, 0.1);
+  margin: 2rem 0;
+}
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* En tu archivo global.css o donde tengas tus estilos */
+.ProseMirror h1.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+/* --- INICIO: ESTILOS PARA CORREGIR ANCHO Y POSICIÓN DEL SIDEBAR DE LA LIBRERÍA --- */
+
+[data-slot="sidebar-container"] {
+  /* Forzar el ancho deseado */
+  width: 180px !important;
+  min-width: 180px !important;
+  max-width: 180px !important;
+
+  /* MUY IMPORTANTE: Cambiar la posición para que fluya con el layout flex */
+  position: static !important;
+  /* o relative, si static no funciona como se espera */
+  /* z-index: auto !important; /* Asegurar que no tenga un z-index conflictivo */
+  /* Eliminar transformaciones que puedan afectar el layout si las hubiera */
+  /* transform: none !important; */
+}
+
+[data-slot="sidebar-gap"] {
+  width: 0 !important;
+}
+
+/*
+  Si la librería tiene un modo "icono" y quieres que ese modo también
+  tenga un ancho específico (y no el calculado por --sidebar-width-icon),
+  puedes añadir:
+*/
+/*
+.group-data-\[collapsible=icon\] [data-slot="sidebar-container"],
+.group-data-\[collapsible=icon\] {
+  /* width: 60px !important; /* Ejemplo para modo icono */
+/* min-width: 60px !important; */
+/*}
+*/
+
+/* --- FIN: ESTILOS PARA CORREGIR ANCHO Y POSICIÓN DEL SIDEBAR DE LA LIBRERÍA --- */
