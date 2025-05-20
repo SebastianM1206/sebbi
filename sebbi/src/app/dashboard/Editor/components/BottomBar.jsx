@@ -5,19 +5,20 @@ import { Separator } from "@/components/ui/separator";
 import { Quote, TextIcon, ImageIcon, TableIcon, FileCode, Braces, Undo, Redo, ChevronDown } from "lucide-react";
 
 export default function BottomBar({ editor, wordCount }) {
+    if (!editor) {
+        return (
+            <div className="border-t border-neutral-200/70 py-1.5 px-4 flex justify-center items-center bg-white shadow-sm">
+                <div className="max-w-[800px] w-full flex justify-center items-center">
+                    <div className="text-neutral-500 text-xs">Editor no disponible</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="border-t border-neutral-200/70 py-1.5 px-4 flex justify-center items-center bg-white shadow-sm">
             <div className="max-w-[800px] w-full flex justify-center items-center">
                 <div className="flex items-center justify-center gap-2">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs font-normal text-neutral-600 hover:bg-neutral-100">
-                                <Quote size={14} className="opacity-70" />
-                                <span>Cite</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Citar fuentes</p></TooltipContent>
-                    </Tooltip>
 
                     <Separator orientation="vertical" className="h-5 bg-neutral-200/70" />
 

@@ -42,10 +42,7 @@ export default function SignIn() {
 
             const data = await response.json();
 
-            localStorage.setItem("accessToken", data.access_token);
-            if (data.refresh_token) {
-                localStorage.setItem("refreshToken", data.refresh_token);
-            }
+            localStorage.setItem("userEmail", email);
 
             toast.success("Inicio de sesión exitoso", {
                 description: "Redirigiendo al dashboard...",
@@ -117,7 +114,7 @@ export default function SignIn() {
                     </div>
                     <Button
                         type="submit"
-                        className="w-full bg-[#2D37CF] hover:bg-[#232bc0] text-white text-sm font-medium py-2 rounded-md shadow-sm transition-colors duration-150 h-10"
+                        className="w-full  text-white text-sm font-medium py-2 rounded-md shadow-sm transition-colors duration-150 h-10"
                         disabled={isLoading}
                     >
                         {isLoading ? (

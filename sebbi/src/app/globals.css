@@ -45,71 +45,71 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #ffffff;
+  --foreground: #232323;
+  --card: #ffffff;
+  --card-foreground: #232323;
+  --popover: #ffffff;
+  --popover-foreground: #232323;
+  --primary: #353535;
+  --primary-foreground: #fafafa;
+  --secondary: #f7f7f7;
+  --secondary-foreground: #353535;
+  --muted: #f7f7f7;
+  --muted-foreground: #8a8a8a;
+  --accent: #f7f7f7;
+  --accent-foreground: #353535;
+  --destructive: #ffb4b4;
+  --border: #ebebeb;
+  --input: #ebebeb;
+  --ring: #b3b3b3;
+  --chart-1: #a3e635;
+  --chart-2: #38bdf8;
+  --chart-3: #818cf8;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #232323;
+  --sidebar-primary: #353535;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #f7f7f7;
+  --sidebar-accent-foreground: #353535;
+  --sidebar-border: #ebebeb;
+  --sidebar-ring: #b3b3b3;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #232323;
+  --foreground: #fafafa;
+  --card: #353535;
+  --card-foreground: #fafafa;
+  --popover: #353535;
+  --popover-foreground: #fafafa;
+  --primary: #ebebeb;
+  --primary-foreground: #353535;
+  --secondary: #434343;
+  --secondary-foreground: #fafafa;
+  --muted: #434343;
+  --muted-foreground: #b3b3b3;
+  --accent: #434343;
+  --accent-foreground: #fafafa;
+  --destructive: #ff6b6b;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #8a8a8a;
+  --chart-1: #6366f1;
+  --chart-2: #38bdf8;
+  --chart-3: #f472b6;
+  --chart-4: #818cf8;
+  --chart-5: #fbbf24;
+  --sidebar: #353535;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #434343;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-ring: #8a8a8a;
 }
 
 @layer base {
@@ -137,6 +137,41 @@
       margin-top: 0.25em;
       margin-bottom: 0.25em;
     }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.1;
+    margin-top: 2.5rem;
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2 {
+    margin-top: 3.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+  }
+
+  h3 {
+    font-size: 1.2rem;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-size: 1rem;
   }
 }
 
@@ -326,4 +361,77 @@
 /*}
 */
 
+
 /* --- FIN: ESTILOS PARA CORREGIR ANCHO Y POSICIÓN DEL SIDEBAR DE LA LIBRERÍA --- */
+
+.ghost-autocomplete {
+  color: #a3a3a3;
+  opacity: 0.7;
+  pointer-events: none;
+  font-style: italic;
+  /* Para que no afecte el salto de línea ni el cursor */
+  user-select: none;
+  background: none !important;
+}
+
+/* Estilos para el texto ghost */
+.ghost-text {
+  color: #a3a3a3;
+  opacity: 0.7;
+  pointer-events: none;
+  font-style: italic;
+  user-select: none;
+}
+
+/* Asegurarse que el texto ghost no afecte el layout */
+.ProseMirror .ghost-text {
+  display: inline;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.ghost-text-suggestion {
+  color: #a0aec0;
+  /* Gris, ej: text-gray-500 de Tailwind */
+  opacity: 0.7;
+  pointer-events: none;
+  /* Para que no interfiera con el clic */
+  user-select: none;
+  /* Para que no se pueda seleccionar */
+  font-style: italic;
+  margin-left: 1px;
+  /* Pequeño ajuste para que no se solape con el cursor */
+}
+
+/* Estilos para Tippy.js si es necesario (generalmente ya vienen bien) */
+.tippy-box {
+  background-color: white;
+  border-radius: 0.375rem;
+  /* rounded-md */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* shadow-lg */
+}
+
+.tippy-content {
+  padding: 0px;
+  /* El padding ya está en nuestro SuggestionAcceptPopup */
+}
+
+.tiptap ul,
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.tiptap ol,
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.tiptap li,
+.ProseMirror li {
+  margin-bottom: 0.25rem;
+}

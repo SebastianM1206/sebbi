@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import questions, pdf, auth
+from app.api.routes import questions, pdf, auth, documents
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -24,6 +24,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix=settings.API_PREFIX)
 app.include_router(questions.router, prefix=settings.API_PREFIX)
 app.include_router(pdf.router, prefix=settings.API_PREFIX)
+app.include_router(documents.router, prefix=settings.API_PREFIX)
 
 @app.get("/")
 async def root():

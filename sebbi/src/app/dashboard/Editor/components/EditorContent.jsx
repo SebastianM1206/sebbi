@@ -1,18 +1,31 @@
 import React from 'react';
 import { EditorContent as TiptapEditorContent, BubbleMenu } from "@tiptap/react";
 import Toolbar from '../Toolbar';
-import CommandMenu from '../CommandMenu';
 
 export default function EditorContentWrapper({
     editor,
     menuState,
-    commandMenuRef,
-    handleCommandExecution,
-    setMenuState
 }) {
+
+
+    let ghostSuggestion = null;
+    if (menuState.isOpen && menuState.query && menuState.filteredItems && menuState.filteredItems.length > 0) {
+        const topMatch = menuState.filteredItems[0];
+        // Asegúrate de que topMatch y topMatch.title existan
+        if (topMatch && topMatch.title && topMatch.title.startsWith(menuState.query) && topMatch.title.length > menuState.query.length) {
+            ghostSuggestion = {
+                prefix: menuState.query,
+                suffix: topMatch.title.substring(menuState.query.length),
+                fullText: topMatch.title,
+                command: topMatch, // Este es el objeto de comando completo que se pasará a handleCommandExecution
+            };
+        }
+    }
+
     return (
-        <div className="max-w-[800px] mx-auto px-4 sm:px-8 py-12">
-            <TiptapEditorContent editor={editor} />
+        <div className="max-w-[800px] mx-auto px-4 sm:px-8 py-12 relative">
+            {editor && <TiptapEditorContent editor={editor} />}
+
 
             {editor && (
                 <BubbleMenu
@@ -25,27 +38,7 @@ export default function EditorContentWrapper({
                 </BubbleMenu>
             )}
 
-            {menuState.isOpen && menuState.position && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: menuState.position.top,
-                        left: menuState.position.left,
-                        zIndex: 50,
-                    }}
-                >
-                    <CommandMenu
-                        ref={commandMenuRef}
-                        items={menuState.filteredItems}
-                        onSelectItem={handleCommandExecution}
-                        selectedIndex={menuState.selectedIndex}
-                        setSelectedIndex={(index) =>
-                            setMenuState(prev => ({ ...prev, selectedIndex: index }))
-                        }
-                        query={menuState.query}
-                    />
-                </div>
-            )}
+
         </div>
     );
 } 
