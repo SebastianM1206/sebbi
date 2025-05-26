@@ -49,56 +49,57 @@ const useEditorStore = create((set, get) => ({
                 return;
             }
 
+            // Obtener el contenido HTML actual del editor
+            const currentHTML = editorFromStore ? editorFromStore.getHTML() : originalContentParsed.blocks;
+
             const updatedContentStructure = {
                 ...originalContentParsed,
                 title: processedNewTitle,
-                blocks: editorFromStore ? editorFromStore.getHTML() : originalContentParsed.blocks
+                blocks: currentHTML
             };
 
+            // Guardar inmediatamente en la API
+            await saveDocumentContent({
+                title: processedNewTitle,
+                blocks: currentHTML
+            });
+
+            // Actualizar la versión local después de guardar exitosamente
             const updatedDocumentLocal = {
                 ...currentDocument,
                 content: JSON.stringify(updatedContentStructure),
                 updated_at: new Date().toISOString()
             };
 
-            // Actualizar la versión local inmediatamente para UI responsiva
             set({
                 currentDocument: updatedDocumentLocal,
-                hasUnsavedChanges: true  // Importante: asegura que se marque como cambio pendiente
+                hasUnsavedChanges: false,  // Ya se guardó
+                lastSavedAt: new Date()
             });
 
-            // Actualizar el título en el editor de manera segura
+            // Actualizar el título en el editor si es necesario
             if (editorFromStore) {
                 try {
                     const wasEditable = editorFromStore.isEditable;
                     if (wasEditable) editorFromStore.setEditable(false);
 
-                    // Enfoque más seguro: buscar el primer H1 y cambiarlo
                     const firstNode = editorFromStore.state.doc.firstChild;
-
                     if (firstNode && firstNode.type.name === 'heading' && firstNode.attrs.level === 1) {
-                        // Si hay un H1, reemplazarlo
-                        const transaction = editorFromStore.state.tr.delete(0, firstNode.nodeSize);
-
-                        // Crear nuevo H1 con el título
-                        const newHeading = editorFromStore.schema.nodes.heading.create(
-                            { level: 1 },
-                            processedNewTitle ? editorFromStore.schema.text(processedNewTitle) : null
-                        );
-
-                        // Insertar el nuevo H1 al principio
-                        transaction.insert(0, newHeading);
-
-                        // Aplicar la transacción
-                        editorFromStore.view.dispatch(transaction);
+                        if (firstNode.textContent.trim() !== processedNewTitle) {
+                            const transaction = editorFromStore.state.tr.delete(0, firstNode.nodeSize);
+                            const newHeading = editorFromStore.schema.nodes.heading.create(
+                                { level: 1 },
+                                processedNewTitle ? editorFromStore.schema.text(processedNewTitle) : null
+                            );
+                            transaction.insert(0, newHeading);
+                            editorFromStore.view.dispatch(transaction);
+                        }
                     } else {
-                        // Si no hay H1, insertar uno al principio
                         const transaction = editorFromStore.state.tr;
                         const newHeading = editorFromStore.schema.nodes.heading.create(
                             { level: 1 },
                             processedNewTitle ? editorFromStore.schema.text(processedNewTitle) : null
                         );
-
                         transaction.insert(0, newHeading);
                         editorFromStore.view.dispatch(transaction);
                     }
@@ -109,12 +110,6 @@ const useEditorStore = create((set, get) => ({
                 }
             }
 
-            // Guardar en la API
-            await saveDocumentContent({
-                title: processedNewTitle,
-                blocks: editorFromStore ? editorFromStore.getHTML() : originalContentParsed.blocks
-            });
-
         } catch (error) {
             console.error("Error en updateDocumentTitle:", error);
             // Restaurar el contenido original en caso de error
@@ -123,9 +118,11 @@ const useEditorStore = create((set, get) => ({
                     currentDocument: {
                         ...currentDocument,
                         content: JSON.stringify(originalContentParsed)
-                    }
+                    },
+                    hasUnsavedChanges: true
                 });
             }
+            throw error; // Relanzar el error para manejarlo en el componente
         } finally {
             set({ isUpdatingTitle: false });
         }
@@ -160,39 +157,43 @@ const useEditorStore = create((set, get) => ({
                 contentObj = JSON.parse(docFromAPI.content);
             } catch (parseError) {
                 console.error("Error al parsear contenido del documento cargado:", parseError);
-                contentObj = { title: docFromAPI.title || "Sin título", blocks: "<p></p>" }; // Fallback
+                contentObj = { title: "Sin título", blocks: "<p></p>" }; // Fallback
             }
 
             const title = contentObj.title || "Sin título";
-            let contentHTML = contentObj.blocks || "<p></p>";
+            let contentHTML = contentObj.blocks || `<h1>${title}</h1><p></p>`;
 
+            // Asegurar que el contenido tenga un H1 con el título correcto
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = contentHTML;
+            let h1 = tempDiv.querySelector('h1');
+
+            if (!h1) {
+                // Si no hay H1, crear uno con el título
+                contentHTML = `<h1>${title}</h1>${contentHTML}`;
+            } else if (h1.textContent.trim() !== title) {
+                // Si el H1 existe pero tiene un título diferente, actualizarlo
+                h1.textContent = title;
+                contentHTML = tempDiv.innerHTML;
+            }
+
+            // Actualizar el documento en el store
             set({
-                currentDocument: docFromAPI, // Usar el documento de la API que incluye ID, created_at, etc.
+                currentDocument: {
+                    ...docFromAPI,
+                    content: JSON.stringify({
+                        ...contentObj,
+                        title,
+                        blocks: contentHTML
+                    })
+                },
                 hasUnsavedChanges: false,
                 lastSavedAt: new Date(docFromAPI.updated_at),
             });
 
-            // Limpiar y establecer contenido en el editor cuando esté listo
+            // Actualizar el editor
             if (editorFromStore.isEditable) {
-                editorFromStore.commands.setContent(''); // Limpiar primero
-
-                // Asegurar H1
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = contentHTML;
-                let h1 = tempDiv.querySelector('h1');
-
-                if (!h1) {
-                    h1 = document.createElement('h1');
-                    h1.textContent = title;
-                    tempDiv.prepend(h1);
-                } else {
-                    if (h1.textContent !== title) {
-                        h1.textContent = title;
-                    }
-                }
-                contentHTML = tempDiv.innerHTML;
-
-                editorFromStore.commands.setContent(contentHTML, false);
+                editorFromStore.commands.setContent(contentHTML);
             }
 
             return docFromAPI;

@@ -51,7 +51,7 @@ export default function SidebarComponent() {
             </SidebarHeader>
 
             <SidebarContent className="py-2">
-                <SidebarMenu>
+                <SidebarMenu className="sidebar-menu">
                     <SidebarMenuItem>
                         <SidebarMenuButton className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm">
                             <PlusCircle className="h-4 w-4 text-indigo-600" />
@@ -61,7 +61,8 @@ export default function SidebarComponent() {
 
                     <SidebarMenuItem>
                         <SidebarMenuButton
-                            className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm"
+                            data-tour="documents-button"
+                            className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm documents-button"
                             onClick={openDocumentsSidebar}
                         >
                             <FileText className="h-4 w-4 text-gray-500" />
@@ -71,7 +72,8 @@ export default function SidebarComponent() {
 
                     <SidebarMenuItem>
                         <SidebarMenuButton
-                            className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm"
+                            data-tour="library-button"
+                            className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm library-button"
                             onClick={openLibrarySidebar}
                         >
                             <Library className="h-4 w-4 text-gray-500" />
@@ -81,7 +83,8 @@ export default function SidebarComponent() {
 
                     <SidebarMenuItem>
                         <SidebarMenuButton
-                            className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm"
+                            data-tour="chat-button"
+                            className="w-full px-2 py-2 justify-start gap-2 hover:bg-gray-50 text-sm chat-button"
                             onClick={toggleChatSidebar}
                         >
                             <MessageSquare className="h-4 w-4 text-gray-500" />

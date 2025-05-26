@@ -95,13 +95,59 @@ export default function DocumentsSidebar() {
             }
 
             const data = await response.json();
-            setDocuments(data);
-            setFilteredDocuments(data);
+
+            // Si no hay documentos, crear uno por defecto
+            if (data.length === 0) {
+                const defaultTitle = "Mi primer documento";
+                const defaultDoc = await createDefaultDocument(defaultTitle);
+                if (defaultDoc) {
+                    setDocuments([defaultDoc]);
+                    setFilteredDocuments([defaultDoc]);
+                    // Cargar el documento por defecto
+                    await handleDocumentClick(defaultDoc);
+                }
+            } else {
+                setDocuments(data);
+                setFilteredDocuments(data);
+            }
         } catch (error) {
             console.error("Error al cargar documentos:", error);
             toast.error("Error al cargar documentos");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Función auxiliar para crear un documento por defecto
+    const createDefaultDocument = async (title) => {
+        try {
+            const defaultContent = {
+                title: title,
+                blocks: `<h1>${title}</h1><p>¡Bienvenido a tu primer documento!</p>`
+            };
+
+            const response = await fetch(`${API_URL}/api/v1/documents`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    content: JSON.stringify(defaultContent),
+                    email: userEmail
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Error al crear documento por defecto");
+            }
+
+            const newDocument = await response.json();
+            toast.success("Documento inicial creado");
+            return newDocument;
+        } catch (error) {
+            console.error("Error al crear documento por defecto:", error);
+            toast.error("Error al crear documento inicial");
+            return null;
         }
     };
 
@@ -113,16 +159,18 @@ export default function DocumentsSidebar() {
 
         try {
             setCreatingDocument(true);
+            const documentContent = {
+                title: newDocumentTitle,
+                blocks: `<h1>${newDocumentTitle}</h1><p></p>`
+            };
+
             const response = await fetch(`${API_URL}/api/v1/documents`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    content: JSON.stringify({
-                        title: newDocumentTitle,
-                        blocks: `<h1>${newDocumentTitle}</h1><p></p>` // Aseguramos que el contenido inicial tenga un H1
-                    }),
+                    content: JSON.stringify(documentContent),
                     email: userEmail
                 }),
             });
@@ -136,6 +184,9 @@ export default function DocumentsSidebar() {
             setIsCreateDialogOpen(false);
             setNewDocumentTitle("");
             toast.success("Documento creado correctamente");
+
+            // Cargar el nuevo documento inmediatamente
+            await handleDocumentClick(newDocument);
         } catch (error) {
             console.error("Error al crear documento:", error);
             toast.error("Error al crear el documento");
@@ -235,13 +286,17 @@ export default function DocumentsSidebar() {
     };
 
     const handleDocumentClick = async (doc) => {
-        setSelectedDocumentId(doc.id);
+        if (doc.id === selectedDocumentId) return; // No recargar si ya está seleccionado
 
         try {
-            // Cargar documento usando la función centralizada del store
+            // Si hay cambios sin guardar en el documento actual, guardarlos primero
+            if (editor && editor.isEditable && hasContentChangedRef.current) {
+                await saveCurrentContent();
+            }
+
+            setSelectedDocumentId(doc.id);
             await loadDocument(doc.id);
 
-            // Obtener título de manera segura
             let title = "";
             try {
                 const content = JSON.parse(doc.content);
@@ -254,6 +309,7 @@ export default function DocumentsSidebar() {
         } catch (error) {
             console.error("Error al cargar documento:", error);
             toast.error("Error al cargar el documento");
+            setSelectedDocumentId(null);
         }
     };
 
@@ -317,35 +373,37 @@ export default function DocumentsSidebar() {
     // Actualizar documento en la lista cuando cambia en el store
     useEffect(() => {
         if (currentDocumentFromStore) {
-            // Actualizar el documento en la lista cuando cambia en el store
             setDocuments(prevDocs => {
-                const index = prevDocs.findIndex(doc => doc.id === currentDocumentFromStore.id);
-                if (index !== -1) {
-                    // Si el documento ya está en la lista, actualízalo completamente
-                    const updatedList = [...prevDocs];
-                    updatedList[index] = { ...currentDocumentFromStore };
-                    return updatedList;
-                }
-                return prevDocs;
-            });
-
-            // También actualizar la lista filtrada si hay una búsqueda activa
-            if (searchQuery.trim() !== "") {
-                setFilteredDocuments(prevFiltered => {
-                    const index = prevFiltered.findIndex(doc => doc.id === currentDocumentFromStore.id);
-                    if (index !== -1) {
-                        const updatedFiltered = [...prevFiltered];
-                        updatedFiltered[index] = { ...currentDocumentFromStore };
-                        return updatedFiltered;
+                const updatedDocs = prevDocs.map(doc => {
+                    if (doc.id === currentDocumentFromStore.id) {
+                        return { ...currentDocumentFromStore };
                     }
-                    return prevFiltered;
+                    return doc;
                 });
-            }
+
+                // Actualizar también la lista filtrada si hay una búsqueda activa
+                if (searchQuery.trim() !== "") {
+                    setFilteredDocuments(updatedDocs.filter(doc => {
+                        try {
+                            const content = JSON.parse(doc.content);
+                            const title = content.title || "";
+                            return title.toLowerCase().includes(searchQuery.toLowerCase());
+                        } catch (error) {
+                            console.error("Error al filtrar documento:", error);
+                            return false;
+                        }
+                    }));
+                } else {
+                    setFilteredDocuments(updatedDocs);
+                }
+
+                return updatedDocs;
+            });
         }
     }, [currentDocumentFromStore, searchQuery]);
 
     return (
-        <div className="h-screen w-[300px] bg-white border-r border-neutral-200 shadow-sm flex flex-col">
+        <div className="h-screen w-[300px] bg-white border-r border-neutral-200 shadow-sm flex flex-col" data-tour="documents-content">
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-3 border-b border-neutral-200">
                 <span className="font-semibold text-lg text-neutral-800">Documentos</span>

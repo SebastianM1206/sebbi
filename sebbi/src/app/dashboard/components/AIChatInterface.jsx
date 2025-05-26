@@ -210,7 +210,7 @@ export default function AIChatInterface() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-white border-l border-neutral-200 w-full overflow-hidden">
+        <div className="flex flex-col h-screen bg-white border-l border-neutral-200 w-full overflow-hidden" data-tour="chat-content">
             {/* Barra superior */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80 bg-white shadow-sm">
                 <div className="flex items-center gap-2">

@@ -20,10 +20,19 @@ import BottomBar from './components/BottomBar';
 import EditorContentWrapper from './components/EditorContent';
 import SaveIndicator from './components/SaveIndicator';
 import BulletList from '@tiptap/extension-bullet-list';
-
+import AcceptSuggestionButton from './components/AcceptSuggestionButton';
+import { GhostTextExtension, GhostTextPluginKey } from "./GhostTextExtension";
 
 // Tiempo entre cada guardado automático (3 segundos)
 const AUTO_SAVE_INTERVAL = 3000;
+const SUGGESTION_DELAY = 3000; // 3 segundos para mostrar sugerencia
+
+const suggestionsData = {
+    "The study of computational complexity classes": ", such as P and NP, provides a framework for understanding the inherent difficulty of solving computational problems, irrespective of specific algorithmic approaches or technological advancements. It seeks to formally differentiate between problems that can be solved efficiently and those that are intrinsically intractable (Brucker, 1995).",
+    "Hola": " Mundo, esta es una prueba de autocompletado.",
+    "Tiptap es": " un editor de texto enriquecido sin cabeza para la web.",
+    "React es": " una biblioteca de JavaScript para construir interfaces de usuario."
+};
 
 export default function NotionStyleEditor() {
     const [documentTitle, setDocumentTitle] = useState("");
@@ -37,6 +46,9 @@ export default function NotionStyleEditor() {
         filteredItems: [],
     });
     const [isLoadingEditor, setIsLoadingEditor] = useState(true);
+    const [showSuggestionButton, setShowSuggestionButton] = useState(false);
+    const [currentGhostText, setCurrentGhostText] = useState("");
+    const suggestionTimeoutRef = useRef(null);
 
     const {
         editor: editorInstanceFromStore,
@@ -46,12 +58,40 @@ export default function NotionStyleEditor() {
         setHasUnsavedChanges,
         updateDocumentTitle,
         hasUnsavedChanges: storeHasUnsavedChanges,
-        isUpdatingTitle
+        isUpdatingTitle,
+        loadDocument
     } = useEditorStore();
     const commandMenuRef = useRef(null);
     const autoSaveTimerRef = useRef(null);
     const hasContentChangedRef = useRef(false);
     const debounceTimeoutRef = useRef(null);
+
+    // Referencia al API_URL
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const userEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;
+
+    // Efecto para cargar el primer documento al iniciar
+    useEffect(() => {
+        const loadFirstDocument = async () => {
+            if (!currentDocument && userEmail) {
+                try {
+                    const response = await fetch(`${API_URL}/api/v1/documents?email=${encodeURIComponent(userEmail)}`);
+                    if (!response.ok) {
+                        throw new Error("Error al obtener documentos");
+                    }
+                    const documents = await response.json();
+                    if (documents.length > 0) {
+                        await loadDocument(documents[0].id);
+                    }
+                } catch (error) {
+                    console.error("Error al cargar el primer documento:", error);
+                    toast.error("Error al cargar el documento inicial");
+                }
+            }
+        };
+
+        loadFirstDocument();
+    }, [currentDocument, loadDocument, userEmail]);
 
     // Configuración de guardado automático
     const scheduleAutoSave = useCallback(() => {
@@ -118,7 +158,8 @@ export default function NotionStyleEditor() {
             }),
             OrderedList,
             BulletList,
-            ListItem
+            ListItem,
+            GhostTextExtension
         ],
         content: '',
         editable: true,
@@ -127,6 +168,17 @@ export default function NotionStyleEditor() {
         },
         onCreate({ editor }) {
             setEditor(editor);
+
+            // Si hay un documento actual, establecer su contenido
+            if (currentDocument) {
+                try {
+                    const content = JSON.parse(currentDocument.content);
+                    const blocks = content.blocks || `<h1>${content.title || ''}</h1><p></p>`;
+                    editor.commands.setContent(blocks);
+                } catch (error) {
+                    console.error("Error al establecer contenido inicial:", error);
+                }
+            }
         },
         onDestroy() {
             setEditor(null);
@@ -137,6 +189,39 @@ export default function NotionStyleEditor() {
             },
         },
     });
+
+    // Efecto para actualizar el contenido cuando cambia el documento actual
+    useEffect(() => {
+        const updateContent = async () => {
+            if (editor && currentDocument && !editor.isDestroyed) {
+                try {
+                    // Primero guardar el contenido actual si hay cambios
+                    if (hasContentChangedRef.current) {
+                        await saveCurrentContent();
+                    }
+
+                    const content = JSON.parse(currentDocument.content);
+                    const blocks = content.blocks || `<h1>${content.title || ''}</h1><p></p>`;
+
+                    // Actualizar el título local
+                    setDocumentTitle(content.title || '');
+
+                    // Actualizar el contenido del editor
+                    editor.commands.setContent(blocks);
+
+                    // Resetear el estado de cambios
+                    setHasUnsavedChanges(false);
+                    hasContentChangedRef.current = false;
+
+                } catch (error) {
+                    console.error("Error al actualizar contenido del documento:", error);
+                    toast.error("Error al cargar el contenido del documento");
+                }
+            }
+        };
+
+        updateContent();
+    }, [currentDocument, editor, saveCurrentContent, setHasUnsavedChanges]);
 
     // Efecto para controlar la editabilidad del editor Tiptap
     useEffect(() => {
@@ -343,59 +428,143 @@ export default function NotionStyleEditor() {
         }
     }, [currentDocument]);
 
-    // Detectar cambios en el H1 (título) al editar directamente en el editor
+    // Detectar cambios en el contenido del editor
     useEffect(() => {
         if (!editor) return;
 
-        // Función que actualiza el título cuando se modifica el H1 directamente en el editor
-        const handleDocumentUpdate = () => {
-            if (isUpdatingTitle) return; // Evitar bucles
+        const handleUpdate = async ({ editor }) => {
+            if (isUpdatingTitle) return;
 
-            try {
-                // Verificar si el primer nodo es un H1
-                const firstNode = editor.state.doc.firstChild;
-                if (firstNode && firstNode.type.name === 'heading' && firstNode.attrs.level === 1) {
-                    const newTitle = firstNode.textContent.trim();
+            // Marcar que hay cambios sin guardar
+            setHasUnsavedChanges(true);
+            hasContentChangedRef.current = true;
 
-                    // Si el título cambió y no coincide con el documentTitle actual
-                    if (newTitle !== documentTitle) {
-                        // Actualizar el estado local
-                        setDocumentTitle(newTitle);
-
-                        // Si hay cambios significativos, actualizar en el store para todos los componentes
-                        if (currentDocument) {
-                            const currentTitle = JSON.parse(currentDocument.content).title || "";
-                            if (newTitle !== currentTitle) {
-                                // Actualizar referencias locales
-                                setHasUnsavedChanges(true);
-                                hasContentChangedRef.current = true;
-
-                                // Actualizar el título en el store - crucial para notificar a DocumentsSidebar
-                                clearTimeout(debounceTimeoutRef.current);
-                                debounceTimeoutRef.current = setTimeout(() => {
-                                    updateDocumentTitle(newTitle);
-                                }, 300);
-                            }
-                        }
+            // Detectar cambios en el H1 (título)
+            const firstNode = editor.state.doc.firstChild;
+            if (firstNode && firstNode.type.name === 'heading' && firstNode.attrs.level === 1) {
+                const newTitle = firstNode.textContent.trim();
+                if (newTitle !== documentTitle) {
+                    clearTimeout(debounceTimeoutRef.current);
+                    // Guardar inmediatamente el título y el contenido
+                    try {
+                        await updateDocumentTitle(newTitle);
+                        await saveCurrentContent();
+                    } catch (error) {
+                        console.error("Error al guardar cambios en el título:", error);
                     }
                 }
-            } catch (error) {
-                console.error("Error al sincronizar H1 con el título:", error);
+            }
+
+            // Programar guardado automático para otros cambios
+            scheduleAutoSave();
+        };
+
+        editor.on('update', handleUpdate);
+        return () => editor.off('update', handleUpdate);
+    }, [editor, documentTitle, isUpdatingTitle, scheduleAutoSave, updateDocumentTitle, saveCurrentContent]);
+
+    // Guardar cambios al cambiar de documento
+    useEffect(() => {
+        return () => {
+            if (hasContentChangedRef.current && editor && editor.isEditable) {
+                saveCurrentContent();
+            }
+        };
+    }, [currentDocument, editor, saveCurrentContent]);
+
+    // Función para generar sugerencias basadas en el contexto
+    const generateSuggestion = useCallback((currentText) => {
+        const text = currentText.trim();
+        for (const [trigger, completion] of Object.entries(suggestionsData)) {
+            if (text.endsWith(trigger)) {
+                if (!text.endsWith(trigger + completion.substring(0, Math.min(5, completion.length)))) {
+                    return completion;
+                }
+            }
+        }
+        return "";
+    }, []);
+
+    // Manejar cambios en el editor para mostrar sugerencias
+    useEffect(() => {
+        if (!editor) return;
+
+        const handleEditorUpdate = ({ editor: currentEditor }) => {
+            if (suggestionTimeoutRef.current) {
+                clearTimeout(suggestionTimeoutRef.current);
+            }
+
+            suggestionTimeoutRef.current = setTimeout(() => {
+                const currentContent = currentEditor.getText();
+                const generatedSuggestion = generateSuggestion(currentContent);
+
+                if (generatedSuggestion) {
+                    setCurrentGhostText(generatedSuggestion);
+                    setShowSuggestionButton(true);
+                    currentEditor.view.dispatch(
+                        currentEditor.view.state.tr.setMeta(GhostTextPluginKey, {
+                            text: generatedSuggestion,
+                            show: true,
+                        })
+                    );
+                } else {
+                    setCurrentGhostText("");
+                    setShowSuggestionButton(false);
+                    currentEditor.view.dispatch(
+                        currentEditor.view.state.tr.setMeta(GhostTextPluginKey, { show: false })
+                    );
+                }
+            }, SUGGESTION_DELAY);
+        };
+
+        editor.on('update', handleEditorUpdate);
+        return () => {
+            editor.off('update', handleEditorUpdate);
+            if (suggestionTimeoutRef.current) {
+                clearTimeout(suggestionTimeoutRef.current);
+            }
+            if (editor && !editor.isDestroyed) {
+                editor.view.dispatch(
+                    editor.view.state.tr.setMeta(GhostTextPluginKey, { show: false })
+                );
+            }
+        };
+    }, [editor, generateSuggestion]);
+
+    // Función para aceptar la sugerencia
+    const handleAcceptSuggestion = useCallback(() => {
+        if (!editor || !currentGhostText) return;
+
+        editor.chain()
+            .focus()
+            .insertContent(currentGhostText)
+            .run();
+
+        setCurrentGhostText("");
+        setShowSuggestionButton(false);
+        editor.view.dispatch(
+            editor.view.state.tr.setMeta(GhostTextPluginKey, { show: false })
+        );
+    }, [editor, currentGhostText]);
+
+    // Efecto para manejar la tecla Tab para aceptar sugerencias
+    useEffect(() => {
+        if (!editor) return;
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Tab' && showSuggestionButton && currentGhostText) {
+                event.preventDefault();
+                handleAcceptSuggestion();
             }
         };
 
-        // Suscripción adecuada a los cambios
-        const unsubscribe = editor.on('update', handleDocumentUpdate);
+        const editorViewDom = editor.view.dom;
+        editorViewDom.addEventListener('keydown', handleKeyDown);
 
         return () => {
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            } else {
-                editor.off('update', handleDocumentUpdate);
-            }
-            clearTimeout(debounceTimeoutRef.current);
+            editorViewDom.removeEventListener('keydown', handleKeyDown);
         };
-    }, [editor, documentTitle, currentDocument, setHasUnsavedChanges, updateDocumentTitle, isUpdatingTitle]);
+    }, [editor, showSuggestionButton, currentGhostText, handleAcceptSuggestion]);
 
     if (isLoadingEditor || !editorInstanceFromStore) {
         return (
@@ -414,6 +583,10 @@ export default function NotionStyleEditor() {
                 />
 
                 <div className="flex-grow overflow-y-auto relative">
+                    <AcceptSuggestionButton
+                        visible={showSuggestionButton}
+                        onAccept={handleAcceptSuggestion}
+                    />
                     <EditorContentWrapper
                         editor={editor}
                         menuState={menuState}
@@ -421,7 +594,6 @@ export default function NotionStyleEditor() {
                         handleCommandExecution={handleCommandExecution}
                         setMenuState={setMenuState}
                     />
-
                 </div>
 
                 <BottomBar

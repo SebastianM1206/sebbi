@@ -58,12 +58,12 @@ export default function TopBar({ documentTitle, setDocumentTitle }) {
 
                 // Actualizar siempre el título desde el store para asegurar sincronización
                 setTitleValue(storeTitle);
-
+                setDocumentTitle(storeTitle); // Asegurar que el título del documento también se actualice
             } catch (error) {
                 console.error("Error al sincronizar título en TopBar:", error);
             }
         }
-    }, [currentDocument, isEditingTitle, isCommittingTitleChange]);
+    }, [currentDocument, isEditingTitle, isCommittingTitleChange, setDocumentTitle]);
 
     useEffect(() => {
         if (documentTitle !== titleValue && !isEditingTitle && !isCommittingTitleChange) {
@@ -91,6 +91,29 @@ export default function TopBar({ documentTitle, setDocumentTitle }) {
         setIsCommittingTitleChange(true);
         try {
             await setDocumentTitle(newTitleToSave);
+
+            // Actualizar el H1 en el editor si existe
+            if (editorInstance) {
+                const firstNode = editorInstance.state.doc.firstChild;
+                if (firstNode && firstNode.type.name === 'heading' && firstNode.attrs.level === 1) {
+                    editorInstance.chain()
+                        .focus()
+                        .command(({ tr }) => {
+                            const start = 0;
+                            const end = firstNode.nodeSize;
+                            tr.replaceWith(
+                                start,
+                                end,
+                                editorInstance.schema.nodes.heading.create(
+                                    { level: 1 },
+                                    editorInstance.schema.text(newTitleToSave)
+                                )
+                            );
+                            return true;
+                        })
+                        .run();
+                }
+            }
         } catch (error) {
             console.error("Error al actualizar título desde TopBar:", error);
             setTitleValue(documentTitle || "");
