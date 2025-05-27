@@ -99,27 +99,22 @@ class GeminiService:
         """
         try:
             # Un prompt más específico para la tarea de autocompletar
-            prompt = f"Continúa el siguiente texto de manera coherente y natural:\n\n{text_input}"
+            prompt = f"""Eres un asistente de escritura. Tu tarea es SOLO proporcionar la continuación del texto que te doy.
+            NO repitas el texto original.
+            NO uses formato especial como *, **, etc.
+            NO incluyas el texto que te proporciono en tu respuesta.
+            NO empieces tu respuesta con el mismo texto que te pido continuar.
+            
+            Texto a continuar: {text_input}
+            
+            Continúa el texto de manera coherente y natural:"""
             
             response_object = self.client.models.generate_content(
                 model="gemini-2.0-flash", 
                 contents=prompt,
             )
             
-            full_response_text = response_object.text
-            
-            # Eliminar el texto de entrada de la respuesta si está presente al inicio
-            if full_response_text.startswith(text_input):
-                # Considerar casos donde Gemini podría añadir un espacio o un ligero cambio
-                # Esta es una forma simple de removerlo. Podría necesitar ajustes más robustos.
-                continuation = full_response_text[len(text_input):].lstrip()
-            else:
-                # Si el texto de entrada no está al inicio, devolvemos la respuesta tal cual,
-                # o podríamos intentar una lógica más compleja para encontrar la continuación.
-                # Por ahora, se asume que Gemini usualmente repite el input.
-                continuation = full_response_text
-            
-            return continuation
+            return response_object.text.strip()
         except Exception as e:
             raise Exception(f"Error al autocompletar texto con Gemini: {str(e)}")
 

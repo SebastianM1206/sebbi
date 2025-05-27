@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import './styles/autocomplete.css';
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -20,19 +21,15 @@ import BottomBar from './components/BottomBar';
 import EditorContentWrapper from './components/EditorContent';
 import SaveIndicator from './components/SaveIndicator';
 import BulletList from '@tiptap/extension-bullet-list';
-import AcceptSuggestionButton from './components/AcceptSuggestionButton';
-import { GhostTextExtension, GhostTextPluginKey } from "./GhostTextExtension";
+import AutocompleteSuggestionButton from './components/AutocompleteSuggestionButton';
+import { AutocompleteExtension, AutocompletePluginKey } from "./extensions/AutocompleteExtension";
 
 // Tiempo entre cada guardado automático (3 segundos)
 const AUTO_SAVE_INTERVAL = 3000;
-const SUGGESTION_DELAY = 3000; // 3 segundos para mostrar sugerencia
+const SUGGESTION_DELAY = 1000; // 1 segundo para mostrar sugerencia
 
-const suggestionsData = {
-    "The study of computational complexity classes": ", such as P and NP, provides a framework for understanding the inherent difficulty of solving computational problems, irrespective of specific algorithmic approaches or technological advancements. It seeks to formally differentiate between problems that can be solved efficiently and those that are intrinsically intractable (Brucker, 1995).",
-    "Hola": " Mundo, esta es una prueba de autocompletado.",
-    "Tiptap es": " un editor de texto enriquecido sin cabeza para la web.",
-    "React es": " una biblioteca de JavaScript para construir interfaces de usuario."
-};
+// Sin sugerencias estáticas - solo IA
+const suggestionsData = {};
 
 export default function NotionStyleEditor() {
     const [documentTitle, setDocumentTitle] = useState("");
@@ -47,8 +44,7 @@ export default function NotionStyleEditor() {
     });
     const [isLoadingEditor, setIsLoadingEditor] = useState(true);
     const [showSuggestionButton, setShowSuggestionButton] = useState(false);
-    const [currentGhostText, setCurrentGhostText] = useState("");
-    const suggestionTimeoutRef = useRef(null);
+    const [currentSuggestion, setCurrentSuggestion] = useState("");
 
     const {
         editor: editorInstanceFromStore,
@@ -159,7 +155,27 @@ export default function NotionStyleEditor() {
             OrderedList,
             BulletList,
             ListItem,
-            GhostTextExtension
+            AutocompleteExtension.configure({
+                delay: SUGGESTION_DELAY,
+                suggestions: {}, // Sin sugerencias estáticas
+                apiUrl: `${API_URL}/api/v1/documents/autocomplete`,
+                useAI: true,
+                minTextLength: 5, // Mínimo 5 caracteres para activar IA
+                onSuggestionShow: (suggestion) => {
+                    console.log('🤖 Sugerencia mostrada:', suggestion);
+                    setCurrentSuggestion(suggestion);
+                    setShowSuggestionButton(true);
+                },
+                onSuggestionHide: () => {
+                    console.log('❌ Sugerencia ocultada');
+                    setCurrentSuggestion("");
+                    setShowSuggestionButton(false);
+                },
+                onAPIError: (error) => {
+                    console.error('🚫 Error de API de autocompletado:', error);
+                    toast.error("Error al obtener sugerencias de IA. Usando sugerencias locales.");
+                },
+            })
         ],
         content: '',
         editable: true,
@@ -472,99 +488,13 @@ export default function NotionStyleEditor() {
         };
     }, [currentDocument, editor, saveCurrentContent]);
 
-    // Función para generar sugerencias basadas en el contexto
-    const generateSuggestion = useCallback((currentText) => {
-        const text = currentText.trim();
-        for (const [trigger, completion] of Object.entries(suggestionsData)) {
-            if (text.endsWith(trigger)) {
-                if (!text.endsWith(trigger + completion.substring(0, Math.min(5, completion.length)))) {
-                    return completion;
-                }
-            }
-        }
-        return "";
-    }, []);
-
-    // Manejar cambios en el editor para mostrar sugerencias
-    useEffect(() => {
-        if (!editor) return;
-
-        const handleEditorUpdate = ({ editor: currentEditor }) => {
-            if (suggestionTimeoutRef.current) {
-                clearTimeout(suggestionTimeoutRef.current);
-            }
-
-            suggestionTimeoutRef.current = setTimeout(() => {
-                const currentContent = currentEditor.getText();
-                const generatedSuggestion = generateSuggestion(currentContent);
-
-                if (generatedSuggestion) {
-                    setCurrentGhostText(generatedSuggestion);
-                    setShowSuggestionButton(true);
-                    currentEditor.view.dispatch(
-                        currentEditor.view.state.tr.setMeta(GhostTextPluginKey, {
-                            text: generatedSuggestion,
-                            show: true,
-                        })
-                    );
-                } else {
-                    setCurrentGhostText("");
-                    setShowSuggestionButton(false);
-                    currentEditor.view.dispatch(
-                        currentEditor.view.state.tr.setMeta(GhostTextPluginKey, { show: false })
-                    );
-                }
-            }, SUGGESTION_DELAY);
-        };
-
-        editor.on('update', handleEditorUpdate);
-        return () => {
-            editor.off('update', handleEditorUpdate);
-            if (suggestionTimeoutRef.current) {
-                clearTimeout(suggestionTimeoutRef.current);
-            }
-            if (editor && !editor.isDestroyed) {
-                editor.view.dispatch(
-                    editor.view.state.tr.setMeta(GhostTextPluginKey, { show: false })
-                );
-            }
-        };
-    }, [editor, generateSuggestion]);
-
-    // Función para aceptar la sugerencia
+    // Función para aceptar la sugerencia usando el comando del editor
     const handleAcceptSuggestion = useCallback(() => {
-        if (!editor || !currentGhostText) return;
-
-        editor.chain()
-            .focus()
-            .insertContent(currentGhostText)
-            .run();
-
-        setCurrentGhostText("");
-        setShowSuggestionButton(false);
-        editor.view.dispatch(
-            editor.view.state.tr.setMeta(GhostTextPluginKey, { show: false })
-        );
-    }, [editor, currentGhostText]);
-
-    // Efecto para manejar la tecla Tab para aceptar sugerencias
-    useEffect(() => {
         if (!editor) return;
+        editor.commands.acceptSuggestion();
+    }, [editor]);
 
-        const handleKeyDown = (event) => {
-            if (event.key === 'Tab' && showSuggestionButton && currentGhostText) {
-                event.preventDefault();
-                handleAcceptSuggestion();
-            }
-        };
 
-        const editorViewDom = editor.view.dom;
-        editorViewDom.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            editorViewDom.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [editor, showSuggestionButton, currentGhostText, handleAcceptSuggestion]);
 
     if (isLoadingEditor || !editorInstanceFromStore) {
         return (
@@ -583,9 +513,10 @@ export default function NotionStyleEditor() {
                 />
 
                 <div className="flex-grow overflow-y-auto relative">
-                    <AcceptSuggestionButton
+                    <AutocompleteSuggestionButton
                         visible={showSuggestionButton}
                         onAccept={handleAcceptSuggestion}
+                        suggestion={currentSuggestion}
                     />
                     <EditorContentWrapper
                         editor={editor}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Upload, Search, Filter as FilterIcon, Trash2, FileText, AlertCircle, Loader2, ExternalLink, BookOpen, ChevronDown, ChevronsRightLeft, FolderPlus, Folder, File, MoreVertical, Edit2, FolderMinus } from "lucide-react";
+import { X, Upload, Search, Filter as FilterIcon, Trash2, FileText, AlertCircle, Loader2, ExternalLink, BookOpen, ChevronDown, ChevronsRightLeft, FolderPlus, Folder, File as FileIcon, MoreVertical, Edit2, FolderMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -313,10 +313,23 @@ const DraggablePdf = ({ pdf, inFolder, getFilenameFromUrl }) => {
 };
 
 function sanitizeFileName(filename) {
-    // Quita acentos, ñ, etc. y reemplaza espacios y comas por guion bajo
-    return filename
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
-        .replace(/[^a-zA-Z0-9._-]/g, '_'); // solo letras, números, punto, guion y guion bajo
+    // Quitar la extensión temporalmente
+    const nameWithoutExt = filename.replace(/\.pdf$/i, '');
+
+    // Sanitizar el nombre: quitar acentos, espacios, caracteres especiales
+    const sanitized = nameWithoutExt
+        .normalize('NFD')                           // Descomponer caracteres acentuados
+        .replace(/[\u0300-\u036f]/g, '')           // Quitar marcas de acentos
+        .replace(/[^a-zA-Z0-9._-]/g, '_')          // Reemplazar caracteres inválidos con guion bajo
+        .replace(/_{2,}/g, '_')                    // Reemplazar múltiples guiones bajos con uno solo
+        .replace(/^_+|_+$/g, '')                   // Quitar guiones bajos al inicio y final
+        .toLowerCase();                            // Convertir a minúsculas
+
+    // Asegurar que el nombre no esté vacío
+    const finalName = sanitized || 'documento';
+
+    // Devolver con la extensión .pdf
+    return finalName + '.pdf';
 }
 
 export default function LibrarySidebar() {
@@ -420,7 +433,14 @@ export default function LibrarySidebar() {
             }
             const uploadToastId = toast.loading(`Subiendo "${file.name}"...`);
             const formData = new FormData();
-            const sanitizedFile = new File([file], sanitizeFileName(file.name), { type: file.type });
+
+            // Crear un nuevo archivo con nombre sanitizado
+            const sanitizedFileName = sanitizeFileName(file.name);
+            const sanitizedFile = new File([file], sanitizedFileName, { type: file.type });
+
+            console.log('📁 Archivo original:', file.name);
+            console.log('🧹 Archivo sanitizado:', sanitizedFileName);
+
             formData.append("file", sanitizedFile);
             formData.append("email", decodeURIComponent(userEmail));
             try {

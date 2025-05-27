@@ -55,15 +55,19 @@ export default function AIChatInterface() {
     // Función para obtener PDFs del usuario
     const fetchPdfs = async () => {
         const userEmail = localStorage.getItem('userEmail');
-        if (!userEmail) return;
+        if (!userEmail) {
+            return;
+        }
 
         setLoadingPdfs(true);
         try {
             const response = await fetch(`${PDF_API_BASE}/user?email=${encodeURIComponent(userEmail)}`);
             if (!response.ok) {
-                throw new Error('Error al cargar PDFs');
+                throw new Error(`Error al cargar PDFs: ${response.status}`);
             }
             const data = await response.json();
+            console.log('📋 PDFs cargados para contexto:', data?.length || 0);
+            console.log('📋 Ejemplo de PDF:', data?.[0]);
             setPdfs(data || []);
         } catch (error) {
             console.error("Error al cargar PDFs:", error);
@@ -108,6 +112,13 @@ export default function AIChatInterface() {
 
             if (selectedPdfs.length > 0) {
                 requestBody.context = selectedPdfs.map(pdf => pdf.link);
+                console.log('📚 Enviando pregunta con contexto:', {
+                    text: currentInputForAPI,
+                    contextUrls: requestBody.context,
+                    numPdfs: selectedPdfs.length
+                });
+            } else {
+                console.log('💬 Enviando pregunta sin contexto:', currentInputForAPI);
             }
 
             const response = await fetch(`${API_URL}/api/v1/questions/ask`, {
@@ -148,12 +159,22 @@ export default function AIChatInterface() {
     };
 
     const togglePdfSelection = (pdf) => {
+        console.log('📄 PDF seleccionado/deseleccionado:', {
+            name: getFilenameFromUrl(pdf.link),
+            link: pdf.link,
+            pdf_id: pdf.pdf_id
+        });
+
         setSelectedPdfs(prev => {
             const isPdfSelected = prev.some(p => p.pdf_id === pdf.pdf_id);
             if (isPdfSelected) {
-                return prev.filter(p => p.pdf_id !== pdf.pdf_id);
+                const newSelection = prev.filter(p => p.pdf_id !== pdf.pdf_id);
+                console.log('📄 PDFs seleccionados después de quitar:', newSelection.length);
+                return newSelection;
             } else {
-                return [...prev, pdf];
+                const newSelection = [...prev, pdf];
+                console.log('📄 PDFs seleccionados después de agregar:', newSelection.length);
+                return newSelection;
             }
         });
     };
@@ -340,90 +361,108 @@ export default function AIChatInterface() {
                 <div className="p-4 pt-3">
                     <div className="relative flex items-center">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
-                            <Popover open={showPdfSelector} onOpenChange={setShowPdfSelector}>
-                                <PopoverTrigger asChild>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className={`h-8 w-8 rounded-full pointer-events-auto ${selectedPdfs.length > 0 ? 'text-indigo-600 bg-indigo-50' : 'text-neutral-500 hover:bg-neutral-100'}`}
-                                            >
-                                                <Paperclip size={16} />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Seleccionar PDFs como contexto</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[280px] p-3" align="start" side="top">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="font-medium text-sm">Seleccionar PDFs como contexto</div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-neutral-500 hover:text-indigo-600 hover:bg-indigo-50"
-                                                onClick={fetchPdfs}
-                                                disabled={loadingPdfs}
-                                            >
-                                                <RefreshCw size={14} className={loadingPdfs ? "animate-spin" : ""} />
-                                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={`h-8 w-8 rounded-full pointer-events-auto ${selectedPdfs.length > 0 ? 'text-indigo-600 bg-indigo-50' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                                        onClick={() => setShowPdfSelector(!showPdfSelector)}
+                                    >
+                                        <Paperclip size={16} />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Seleccionar PDFs como contexto</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
+
+                        {/* Panel de selección de PDFs */}
+                        {showPdfSelector && (
+                            <div className="absolute bottom-full left-3 mb-2 w-[320px] bg-white rounded-lg shadow-lg border border-neutral-200 p-3 z-50">
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="font-medium text-sm">Seleccionar PDFs como contexto</div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-neutral-500 hover:text-indigo-600 hover:bg-indigo-50"
+                                            onClick={fetchPdfs}
+                                            disabled={loadingPdfs}
+                                        >
+                                            <RefreshCw size={14} className={loadingPdfs ? "animate-spin" : ""} />
+                                        </Button>
+                                    </div>
+                                    {loadingPdfs ? (
+                                        <div className="flex flex-col items-center justify-center py-6">
+                                            <div className="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full mb-2"></div>
+                                            <div className="text-xs text-neutral-500">Cargando PDFs...</div>
                                         </div>
-                                        {loadingPdfs ? (
-                                            <div className="flex justify-center py-6">
-                                                <div className="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
-                                            </div>
-                                        ) : pdfs.length === 0 ? (
-                                            <div className="text-center py-6 text-sm text-neutral-500 bg-neutral-50 rounded-md">
-                                                No hay PDFs disponibles
-                                            </div>
-                                        ) : (
-                                            <ScrollArea className="h-[200px] pr-3">
-                                                <div className="space-y-1">
-                                                    {pdfs.map(pdf => (
+                                    ) : pdfs.length === 0 ? (
+                                        <div className="text-center py-6 text-sm text-neutral-500 bg-neutral-50 rounded-md">
+                                            <div className="text-neutral-400 mb-1">📄</div>
+                                            <div>No hay PDFs disponibles</div>
+                                            <div className="text-xs mt-1">Sube PDFs desde la librería para usarlos como contexto</div>
+                                        </div>
+                                    ) : (
+                                        <ScrollArea className="h-[200px] pr-3">
+                                            <div className="space-y-1">
+                                                {pdfs.map(pdf => {
+                                                    const isSelected = selectedPdfs.some(p => p.pdf_id === pdf.pdf_id);
+                                                    return (
                                                         <div
                                                             key={pdf.pdf_id}
-                                                            className={`flex items-start gap-2 p-2 hover:bg-neutral-50 rounded-md cursor-pointer ${selectedPdfs.some(p => p.pdf_id === pdf.pdf_id) ? 'bg-indigo-50' : ''
+                                                            className={`flex items-start gap-2 p-2 hover:bg-neutral-50 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 border border-indigo-200' : 'border border-transparent'
                                                                 }`}
-                                                            onClick={() => togglePdfSelection(pdf)}
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                togglePdfSelection(pdf);
+                                                            }}
                                                         >
                                                             <Checkbox
-                                                                checked={selectedPdfs.some(p => p.pdf_id === pdf.pdf_id)}
+                                                                checked={isSelected}
                                                                 onCheckedChange={() => togglePdfSelection(pdf)}
                                                                 className="mt-1 data-[state=checked]:bg-indigo-600 data-[state=checked]:text-white"
+                                                                onClick={(e) => e.stopPropagation()}
                                                             />
-                                                            <div className="text-sm truncate" title={getFilenameFromUrl(pdf.link)}>
-                                                                {getFilenameFromUrl(pdf.link)}
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-sm font-medium truncate" title={getFilenameFromUrl(pdf.link)}>
+                                                                    {getFilenameFromUrl(pdf.link)}
+                                                                </div>
+                                                                <div className="text-xs text-neutral-500 truncate">
+                                                                    PDF Document
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </ScrollArea>
-                                        )}
-                                        <div className="flex justify-between pt-2 border-t">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={clearSelectedPdfs}
-                                                className="text-xs h-8"
-                                            >
-                                                Limpiar
-                                            </Button>
-                                            <Button
-                                                variant="default"
-                                                size="sm"
-                                                onClick={() => setShowPdfSelector(false)}
-                                                className="text-xs h-8 bg-indigo-600 hover:bg-indigo-700"
-                                            >
-                                                Aceptar ({selectedPdfs.length})
-                                            </Button>
-                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </ScrollArea>
+                                    )}
+                                    <div className="flex justify-between pt-2 border-t">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={clearSelectedPdfs}
+                                            className="text-xs h-8"
+                                        >
+                                            Limpiar
+                                        </Button>
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={() => setShowPdfSelector(false)}
+                                            className="text-xs h-8 bg-indigo-600 hover:bg-indigo-700"
+                                        >
+                                            Aceptar ({selectedPdfs.length})
+                                        </Button>
                                     </div>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
+                                </div>
+                            </div>
+                        )}
+
                         <Textarea
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
