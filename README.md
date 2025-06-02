@@ -1,4 +1,4 @@
-# Estructuras de datos y algoritmos II
+# Estructuras de datos y algoritmos II    / Ingeniería de software 2
 
 ## Autores
 Sebastian Medina Garcia
